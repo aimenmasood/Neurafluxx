@@ -2,7 +2,9 @@ fastapi
 uvicorn[standard]
 python-docx
 chromadb
-sentence-transformers
+# sentence-transformers is NOT needed on Railway — the vector DB is pre-built
+# and ChromaDB uses its own lightweight ONNX runtime for query embedding.
+# Only needed locally when re-running ingest/ingest.py to rebuild the DB.
 groq
 google-generativeai
 python-dotenv
