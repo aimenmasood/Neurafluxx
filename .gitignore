@@ -38,7 +38,7 @@ wheels/
 
 # Database and cache files — NOTE: chroma_db/ is intentionally NOT ignored
 # so the pre-built vector database is committed and deployed to Railway.
-*.sqlite3
+# *.sqlite3 is also NOT ignored because chroma_db/chroma.sqlite3 is the main DB file.
 .cache/
 
 # OS

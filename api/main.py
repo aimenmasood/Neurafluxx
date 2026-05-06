@@ -14,12 +14,15 @@ app = FastAPI(title="Neuraflux Chatbot API")
 # Load allowed origins from environment variable, default to * for Railway
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
+# CORS spec: allow_credentials=True is incompatible with wildcard origin "*"
+_allow_credentials = "*" not in allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"]
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 class ChatRequest(BaseModel):

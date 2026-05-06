@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure Gemini & Groq
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')   # Fixed: was 'gemini-2.5-flash' (invalid)
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
