@@ -36,9 +36,9 @@ wheels/
 *~
 .DS_Store
 
-# Database and cache files
+# Database and cache files — NOTE: chroma_db/ is intentionally NOT ignored
+# so the pre-built vector database is committed and deployed to Railway.
 *.sqlite3
-chroma_db/
 .cache/
 
 # OS

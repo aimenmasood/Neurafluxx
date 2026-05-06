@@ -1,9 +1,17 @@
+import os
 import chromadb
+from pathlib import Path
+
+# Use env var or resolve absolute path relative to this file to avoid
+# Railway working-directory issues with relative paths like './chroma_db'
+_base_dir = Path(__file__).resolve().parent.parent
+_chroma_path = os.getenv("CHROMA_PERSIST_DIR", str(_base_dir / "chroma_db"))
+_collection_name = os.getenv("CHROMA_COLLECTION_NAME", "neuraflux_kb")
 
 # Initialize the client ONCE outside the function (Singleton Pattern)
 # This prevents the "hanging" issue because the DB stays open and ready.
-client = chromadb.PersistentClient(path='./chroma_db')
-collection = client.get_collection('neuraflux_kb')
+client = chromadb.PersistentClient(path=_chroma_path)
+collection = client.get_collection(_collection_name)
 
 def retrieve(query):
     try:

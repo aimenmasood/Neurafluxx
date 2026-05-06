@@ -3,15 +3,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import uvicorn
 
-from .engine import generate_response
+from api.engine import generate_response
 
 load_dotenv()
 
 app = FastAPI(title="Neuraflux Chatbot API")
 
-# Load allowed origins from environment variable, default to localhost for development
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+# Load allowed origins from environment variable, default to * for Railway
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,7 +25,15 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     query: str
 
+@app.get("/")
+def health_check():
+    return {"status": "ok", "message": "NeuraFlux Chatbot API is running."}
+
 @app.post("/chat")
 def chat(request: ChatRequest):
     response = generate_response(request.query)
     return {"response": response}
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("api.main:app", host="0.0.0.0", port=port)
