@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+
+# Environment files (never include secrets in image)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# Docs and dev files (not needed at runtime)
+README.md
+.env.example
+
+# Ingest scripts (not needed at runtime — DB is pre-built)
+ingest/kb_docs/
+
+# OS files
+.DS_Store
+Thumbs.db
