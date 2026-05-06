@@ -1,5 +1,6 @@
 import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from groq import Groq
 from rag.retriever import retrieve
 from rag.prompt import SYSTEM_PROMPT
@@ -7,15 +8,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure Gemini & Groq
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
-gemini_model = genai.GenerativeModel('gemini-1.5-flash')   # Fixed: was 'gemini-2.5-flash' (invalid)
+# Initialize Google Gemini client (new google-genai SDK)
+_gemini_client = genai.Client(
+    api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+)
+
+# Initialize Groq client
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+GEMINI_MODEL = "gemini-1.5-flash"
+
 
 def generate_response(query):
     # --- STEP 0: STATELESS GUARDRAILS ---
     clean_query = query.lower().strip()
-    
+
     # Handle Greetings
     greetings = ["hello", "hi", "hey", "assalam o alaikum"]
     if clean_query in greetings:
@@ -30,34 +37,34 @@ def generate_response(query):
         context = retrieve(query)
     except Exception as e:
         print(f"[DEBUG] Retrieval failed: {e}")
-        context = "" 
+        context = ""
 
     # Step 2: Generation (Groq with Gemini Fallback)
     user_message = f"Context:\n{context}\n\nUser Question: {query}" if context.strip() else f"(No context found)\n\nUser Question: {query}"
 
     try:
         print("[DEBUG] Attempting Groq (Llama 3.3)...")
-        
         chat_completion = groq_client.chat.completions.create(
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message}
             ],
             model="llama-3.3-70b-versatile",
-            timeout=5.0, 
+            timeout=5.0,
             temperature=0.1,
-            max_tokens=200 
+            max_tokens=200
         )
         answer = chat_completion.choices[0].message.content.strip()
 
     except Exception as groq_err:
         print(f"[DEBUG] Groq failed ({groq_err}). Switching to Gemini...")
-        
+
         try:
             full_prompt = f"{SYSTEM_PROMPT}\n\nUser Message: {user_message}"
-            response = gemini_model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = _gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
                     max_output_tokens=200,
                     temperature=0.1,
                 )
@@ -70,7 +77,7 @@ def generate_response(query):
 
     # --- STEP 3: POST-PROCESSING (Cleanup) ---
     final_answer = answer.replace("- ", "").replace("* ", "").replace("Certainly,", "").replace("Absolutely,", "")
-    
+
     if final_answer and final_answer[-1] not in ['.', '!', '?']:
         last_period = final_answer.rfind('.')
         if last_period != -1:

@@ -1,35 +1,52 @@
 import os
-import chromadb
+import json
+import numpy as np
 from pathlib import Path
+from dotenv import load_dotenv
+from google import genai
 
-# Use env var or resolve absolute path relative to this file to avoid
-# Railway working-directory issues with relative paths like './chroma_db'
+load_dotenv()
+
+# Initialize Google client for embeddings (new google-genai SDK)
+_genai_client = genai.Client(
+    api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+)
+
+# Load pre-built vectorstore — numpy array + JSON documents
 _base_dir = Path(__file__).resolve().parent.parent
-_chroma_path = os.getenv("CHROMA_PERSIST_DIR", str(_base_dir / "chroma_db"))
-_collection_name = os.getenv("CHROMA_COLLECTION_NAME", "neuraflux_kb")
+_vectorstore_dir = _base_dir / "vectorstore"
 
-# Initialize the client ONCE outside the function (Singleton Pattern)
-# This prevents the "hanging" issue because the DB stays open and ready.
-client = chromadb.PersistentClient(path=_chroma_path)
-collection = client.get_collection(_collection_name)
+_embeddings = np.load(str(_vectorstore_dir / "embeddings.npy"))   # shape: (N, 768)
+with open(str(_vectorstore_dir / "documents.json"), encoding="utf-8") as f:
+    _documents = json.load(f)
 
-def retrieve(query):
+EMBED_MODEL = "models/gemini-embedding-001"
+
+
+def _cosine_similarity(query_vec, doc_matrix):
+    """Fast cosine similarity between query vector and all doc embeddings."""
+    norms = np.linalg.norm(doc_matrix, axis=1) * np.linalg.norm(query_vec) + 1e-8
+    return np.dot(doc_matrix, query_vec) / norms
+
+
+def retrieve(query: str, top_k: int = 5) -> str:
     try:
-        # n_results is your 'k'. 5 is perfect for your document size.
-        results = collection.query(
-            query_texts=[query], 
-            n_results=5
+        # Embed the query using Google API (new SDK)
+        result = _genai_client.models.embed_content(
+            model=EMBED_MODEL,
+            contents=query
         )
-        
-        if results['documents'] and len(results['documents'][0]) > 0:
-            # We join the top 5 most relevant chunks
-            documents = results['documents'][0]
-            context = '\n\n---\n\n'.join(documents)
-            
-            print(f"[DEBUG] Successfully retrieved {len(documents)} chunks.")
-            return context
-            
-        return ''
+        query_vec = np.array(result.embeddings[0].values, dtype=np.float32)
+
+        # Cosine similarity search
+        similarities = _cosine_similarity(query_vec, _embeddings)
+        top_indices = np.argsort(similarities)[::-1][:top_k]
+        top_docs = [_documents[i] for i in top_indices]
+
+        context = '\n\n---\n\n'.join(top_docs)
+        print(f"[DEBUG] Retrieved {len(top_docs)} chunks (top similarity: {similarities[top_indices[0]]:.3f})")
+        return context
+
     except Exception as e:
         print(f"[RETRIEVER ERROR] {str(e)}")
         return ''
